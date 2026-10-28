@@ -1,31 +1,87 @@
-/* 
-1. Use the inquirer npm package to get user input.
-2. Use the qr-image npm package to turn the user entered URL into a QR code image.
-3. Create a txt file to save the user input using the native fs node module.
-*/
-import inquirer from "inquirer";
-import qr from "qr-image";
-import fs from "fs";    
 
-inquirer.prompt([
-    {
-        type:"input",
-        name:'url',
-        message:'Enter the URL to generate QR code:',
-    },
-])
-.then(answers=>{
-    const url=answers.url; //Copies the user input URL into a variable
-    const qrCode=qr.image(url,{type:'png'}); //converts the URL into a QR code
-    qrCode.pipe(fs.createWriteStream('qr_img.png')).on('finish', () => {
-        console.log("QR code saved!");
+import express from "express";
+import qr from "qr-image";
+import fs from "node:fs/promises";
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+app.use(express.json());
+app.use(express.static("public"));
+
+app.post("/api/qr", async (req, res) => {
+  try {
+    const { url } = req.body;
+
+    if (typeof url !== "string" || !url.trim()) {
+      return res.status(400).json({
+        error: "Please enter a URL."
+      });
+    }
+
+    let parsedUrl;
+
+    try {
+      parsedUrl = new URL(url.trim());
+    } catch {
+      return res.status(400).json({
+        error: "Please enter a valid URL."
+      });
+    }
+
+    if (!["http:", "https:"].includes(parsedUrl.protocol)) {
+      return res.status(400).json({
+        error: "Only HTTP and HTTPS URLs are supported."
+      });
+    }
+
+    const cleanUrl = parsedUrl.href;
+
+    const chunks = [];
+    const qrStream = qr.image(cleanUrl, { type: "png" });
+
+    qrStream.on("data", chunk => chunks.push(chunk));
+
+    qrStream.on("error", error => {
+      console.error(error);
+
+      if (!res.headersSent) {
+        res.status(500).json({
+          error: "Could not generate the QR code."
+        });
+      }
     });
 
-    //Now we will save the use input URL into a text file
-    fs.writeFile("url.txt",url,(err)=>{
-        if(err) throw err;
-        console.log("URL saved in url.txt file!");
-    })
-    console.log(`Qr code generated for the URL: ${url}`);
+    qrStream.on("end", async () => {
+      try {
+        const imageBuffer = Buffer.concat(chunks);
+
+        await Promise.all([
+          fs.writeFile("qr_img.png", imageBuffer),
+          fs.writeFile("URL.txt", cleanUrl)
+        ]);
+
+        res.set("Content-Type", "image/png");
+        res.send(imageBuffer);
+      } catch (error) {
+        console.error(error);
+
+        if (!res.headersSent) {
+          res.status(500).json({
+            error: "Could not save the QR code."
+          });
+        }
+      }
+    });
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      error: "An unexpected error occurred."
+    });
+  }
 });
 
+app.listen(PORT, () => {
+  console.log(`QR Code Generator running at http://localhost:${PORT}`);
+});
