@@ -13,5 +13,17 @@
   },
   "author": "Ayush",
   "license": "ISC",
-  "description": "A simple project to generate QR code from user input URL and save the Url in a text file."
+  "description": "A simple project to generate QR code from user input URL and save the Url in a text file.",
+  "devDependencies": {
+    "vite": "^8.3.5"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Kumar4gitAyush/QR-Code-Generator.git"
+  },
+  "keywords": [],
+  "bugs": {
+    "url": "https://github.com/Kumar4gitAyush/QR-Code-Generator/issues"
+  },
+  "homepage": "https://github.com/Kumar4gitAyush/QR-Code-Generator#readme"
 }
